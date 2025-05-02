@@ -41,6 +41,7 @@ class Downloader:
         self.oprinter = oprinter
         self.print = self.oprinter.oprint
         self.set_indent_number = self.oprinter.set_indent_number
+        self.temp_subfolder = os.urandom(16).hex()
 
     def search_by_tags(self, module_name, track_info: TrackInfo):
         return self.loaded_modules[module_name].search(DownloadTypeEnum.track, f'{track_info.name} {" ".join(track_info.artists)}', track_info=track_info)
@@ -229,8 +230,8 @@ class Downloader:
             if album_info.booklet_url and not os.path.exists(album_path + 'Booklet.pdf'):
                 self.print('Downloading booklet')
                 download_file(album_info.booklet_url, album_path + 'Booklet.pdf')
-            
-            cover_temp_location = download_to_temp(album_info.all_track_cover_jpg_url) if album_info.all_track_cover_jpg_url else ''
+
+            cover_temp_location = download_to_temp(album_info.all_track_cover_jpg_url, subfolder=self.temp_subfolder) if album_info.all_track_cover_jpg_url else ''
 
             # Download booklet, animated album cover and album cover if present
             self._download_album_files(album_path, album_info)
@@ -412,7 +413,6 @@ class Downloader:
 
         delete_cover = False
         if not cover_temp_location:
-            cover_temp_location = touch_file(create_temp_filename())
             delete_cover = True
             covers_module_name = self.third_party_modules[ModuleModes.covers]
             covers_module_name = covers_module_name if covers_module_name != self.service_name else None
@@ -426,7 +426,7 @@ class Downloader:
                 compression=CoverCompressionEnum[self.global_settings['covers']['external_compression'].lower()])
             
             if covers_module_name:
-                default_temp = download_to_temp(track_info.cover_url)
+                default_temp = download_to_temp(track_info.cover_url, subfolder=self.temp_subfolder)
                 test_cover_options = CoverOptions(file_type=ImageFileTypeEnum.jpg, resolution=get_image_resolution(default_temp), compression=CoverCompressionEnum.high)
                 cover_module = self.loaded_modules[covers_module_name]
                 rms_threshold = self.global_settings['advanced']['cover_variance_threshold']
@@ -438,14 +438,14 @@ class Downloader:
                     test_cover_info: CoverInfo = cover_module.get_track_cover(r.result_id, test_cover_options, **r.extra_kwargs)
                     if test_cover_info.url not in attempted_urls:
                         attempted_urls.append(test_cover_info.url)
-                        test_temp = download_to_temp(test_cover_info.url)
+                        test_temp = download_to_temp(test_cover_info.url, subfolder=self.temp_subfolder)
                         rms = compare_images(default_temp, test_temp)
                         silentremove(test_temp)
                         self.print(f'Attempt {i} RMS: {rms!s}') # The smaller the root mean square, the closer the image is to the desired one
                         if rms < rms_threshold:
                             self.print('Match found below threshold ' + str(rms_threshold))
                             jpg_cover_info: CoverInfo = cover_module.get_track_cover(r.result_id, jpg_cover_options, **r.extra_kwargs)
-                            download_file(jpg_cover_info.url, cover_temp_location, artwork_settings=self._get_artwork_settings(covers_module_name))
+                            cover_temp_location = download_to_temp(jpg_cover_info.url, subfolder=self.temp_subfolder, artwork_settings=self._get_artwork_settings(covers_module_name))
                             silentremove(default_temp)
                             if self.global_settings['covers']['save_external']:
                                 ext_cover_info: CoverInfo = cover_module.get_track_cover(r.result_id, ext_cover_options, **r.extra_kwargs)
@@ -453,9 +453,9 @@ class Downloader:
                             break
                 else:
                     self.print('Third-party module could not find cover, using fallback')
-                    shutil.move(default_temp, cover_temp_location)
+                    cover_temp_location = default_temp
             else:
-                download_file(track_info.cover_url, cover_temp_location, artwork_settings=self._get_artwork_settings())
+                cover_temp_location = download_to_temp(track_info.cover_url, subfolder=self.temp_subfolder, artwork_settings=self._get_artwork_settings())
                 if self.global_settings['covers']['save_external'] and ModuleModes.covers in self.module_settings[self.service_name].module_supported_modes:
                     ext_cover_info: CoverInfo = self.service.get_track_cover(track_id, ext_cover_options, **track_info.cover_extra_kwargs)
                     download_file(ext_cover_info.url, f'{track_location_name}.{ext_cover_info.file_type.name}', artwork_settings=self._get_artwork_settings(is_external=True))
@@ -566,7 +566,7 @@ class Downloader:
                     self.print('Warning: conversion_flags setting is invalid, using defaults')
                 
                 conv_flags = conversion_flags[new_codec] if new_codec in conversion_flags else {}
-                temp_track_location = touch_file(f'{create_temp_filename()}.{new_codec_data.container.name}')
+                temp_track_location = f'{create_temp_filename(subfolder = self.temp_subfolder)}.{new_codec_data.container.name}'
                 new_track_location = f'{track_location_name}.{new_codec_data.container.name}'
                 
                 stream: ffmpeg = ffmpeg.input(track_location, hide_banner=None, y=None)
@@ -643,3 +643,8 @@ class Downloader:
             'compression': self.global_settings['covers']['external_compression'] if is_external else self.global_settings['covers']['main_compression'],
             'format': self.global_settings['covers']['external_format'] if is_external else 'jpg'
         }
+
+    def cleanup(self):
+        temp_folder = f"temp/{self.temp_subfolder}"
+        if os.path.exists(temp_folder):
+            shutil.rmtree(temp_folder)

@@ -361,6 +361,7 @@ def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_par
     for mainmodule, items in media_to_download.items():
         for media in items:
             if ModuleModes.download not in orpheus_session.module_settings[mainmodule].module_supported_modes:
+                downloader.cleanup()
                 raise Exception(f'{mainmodule} does not support track downloading') # TODO: replace with ModuleDoesNotSupportAbility
 
             # Load and prepare module
@@ -372,8 +373,10 @@ def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_par
                 moduleselected = third_party_modules[i]
                 if moduleselected:
                     if moduleselected not in orpheus_session.module_list:
+                        downloader.cleanup()
                         raise Exception(f'{moduleselected} does not exist in modules.') # TODO: replace with InvalidModuleError
                     elif i not in orpheus_session.module_settings[moduleselected].module_supported_modes:
+                        downloader.cleanup()
                         raise Exception(f'Module {moduleselected} does not support {i}') # TODO: replace with ModuleDoesNotSupportAbility
                     else:
                         # If all checks pass, load up the selected module
@@ -389,6 +392,7 @@ def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_par
             # Mode to download playlist using other service
             if separate_download_module != 'default' and separate_download_module != mainmodule:
                 if mediatype is not DownloadTypeEnum.playlist:
+                    downloader.cleanup()
                     raise Exception('The separate download module option is only for playlists.') # TODO: replace with ModuleDoesNotSupportAbility
                 downloader.download_playlist(media_id, custom_module=separate_download_module, extra_kwargs=media.extra_kwargs)
             else:  # Standard download modes
@@ -401,6 +405,8 @@ def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_par
                 elif mediatype is DownloadTypeEnum.artist:
                     downloader.download_artist(media_id, extra_kwargs=media.extra_kwargs)
                 else:
+                    downloader.cleanup()
                     raise Exception(f'\tUnknown media type "{mediatype}"')
 
+    downloader.cleanup()
     if os.path.exists('temp') and len(os.listdir('temp')) == 0: shutil.rmtree('temp')

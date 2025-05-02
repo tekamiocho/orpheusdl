@@ -146,23 +146,19 @@ def set_temporary_setting(settings_location, module, root_setting, setting=None,
         session[root_setting] = value
     pickle.dump(temporary_settings, open(settings_location, 'wb'))
 
-create_temp_filename = lambda: f'temp/{os.urandom(16).hex()}'
+def create_temp_filename(subfolder=''):
+    filename = 'temp/'
+    if subfolder:
+        filename += subfolder + '/'
+    os.makedirs(filename, exist_ok=True)
+    return filename + os.urandom(16).hex()
 
-def touch_file(temp_file):
-    """
-    Creates an empty file placeholder.
-    """
-    os.makedirs('temp', exist_ok=True)
-    with open(temp_file, 'a'):
-        os.utime(temp_file)
-    return temp_file
-
-def save_to_temp(input: bytes):
-    location = touch_file(create_temp_filename())
+def save_to_temp(input: bytes, subfolder=''):
+    location = create_temp_filename(subfolder)
     open(location, 'wb').write(input)
     return location
 
-def download_to_temp(url, headers={}, extension='', enable_progress_bar=False, indent_level=0):
-    location = touch_file(create_temp_filename() + (('.' + extension) if extension else ''))
-    download_file(url, location, headers=headers, enable_progress_bar=enable_progress_bar, indent_level=indent_level)
+def download_to_temp(url, extension='', subfolder='', **kwargs):
+    location = create_temp_filename(subfolder) + (('.' + extension) if extension else '')
+    download_file(url, location, **kwargs)
     return location
