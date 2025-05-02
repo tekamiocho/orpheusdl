@@ -41,7 +41,7 @@ def fix_byte_limit(path: str, byte_limit=250):
 r_session = create_requests_session()
 
 def download_file(url, file_location, headers={}, enable_progress_bar=False, indent_level=0, artwork_settings=None):
-    if os.path.isfile(file_location) and os.path.getsize(file_location) > 0:
+    if os.path.isfile(file_location):
         return None
 
     r = r_session.get(url, stream=True, headers=headers, verify=False)
