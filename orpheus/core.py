@@ -357,7 +357,6 @@ class Orpheus:
 
 def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_party_modules, separate_download_module, output_path):
     downloader = Downloader(orpheus_session.settings['global'], orpheus_session.module_controls, oprinter, output_path)
-    os.makedirs('temp', exist_ok=True)
 
     for mainmodule, items in media_to_download.items():
         for media in items:
@@ -404,4 +403,4 @@ def orpheus_core_download(orpheus_session: Orpheus, media_to_download, third_par
                 else:
                     raise Exception(f'\tUnknown media type "{mediatype}"')
 
-    if os.path.exists('temp'): shutil.rmtree('temp')
+    if os.path.exists('temp') and len(os.listdir('temp')) == 0: shutil.rmtree('temp')

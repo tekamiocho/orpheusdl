@@ -41,7 +41,7 @@ def fix_byte_limit(path: str, byte_limit=250):
 r_session = create_requests_session()
 
 def download_file(url, file_location, headers={}, enable_progress_bar=False, indent_level=0, artwork_settings=None):
-    if os.path.isfile(file_location):
+    if os.path.isfile(file_location) and os.path.getsize(file_location) > 0:
         return None
 
     r = r_session.get(url, stream=True, headers=headers, verify=False)
@@ -146,14 +146,23 @@ def set_temporary_setting(settings_location, module, root_setting, setting=None,
         session[root_setting] = value
     pickle.dump(temporary_settings, open(settings_location, 'wb'))
 
-create_temp_filename = lambda : f'temp/{os.urandom(16).hex()}'
+create_temp_filename = lambda: f'temp/{os.urandom(16).hex()}'
+
+def touch_file(temp_file):
+    """
+    Creates an empty file placeholder.
+    """
+    os.makedirs('temp', exist_ok=True)
+    with open(temp_file, 'a'):
+        os.utime(temp_file)
+    return temp_file
 
 def save_to_temp(input: bytes):
-    location = create_temp_filename()
+    location = touch_file(create_temp_filename())
     open(location, 'wb').write(input)
     return location
 
 def download_to_temp(url, headers={}, extension='', enable_progress_bar=False, indent_level=0):
-    location = create_temp_filename() + (('.' + extension) if extension else '')
+    location = touch_file(create_temp_filename() + (('.' + extension) if extension else ''))
     download_file(url, location, headers=headers, enable_progress_bar=enable_progress_bar, indent_level=indent_level)
     return location

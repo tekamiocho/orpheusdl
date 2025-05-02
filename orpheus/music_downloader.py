@@ -412,7 +412,7 @@ class Downloader:
 
         delete_cover = False
         if not cover_temp_location:
-            cover_temp_location = create_temp_filename()
+            cover_temp_location = touch_file(create_temp_filename())
             delete_cover = True
             covers_module_name = self.third_party_modules[ModuleModes.covers]
             covers_module_name = covers_module_name if covers_module_name != self.service_name else None
@@ -566,7 +566,7 @@ class Downloader:
                     self.print('Warning: conversion_flags setting is invalid, using defaults')
                 
                 conv_flags = conversion_flags[new_codec] if new_codec in conversion_flags else {}
-                temp_track_location = f'{create_temp_filename()}.{new_codec_data.container.name}'
+                temp_track_location = touch_file(f'{create_temp_filename()}.{new_codec_data.container.name}')
                 new_track_location = f'{track_location_name}.{new_codec_data.container.name}'
                 
                 stream: ffmpeg = ffmpeg.input(track_location, hide_banner=None, y=None)
